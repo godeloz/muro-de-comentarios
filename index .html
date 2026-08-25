@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Liderazgo en Escena · Muro de comentarios</title>
+<meta name="description" content="¿Cómo viviste esta experiencia con el cine?">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>★</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --fondo:#F7F7FA;
+  --fondo-hondo:#EFEFF4;
+  --tarjeta:#FFFFFF;
+  --tinta:#1D1D1F;
+  --tinta-suave:#6E6E73;
+  --linea:#E3E3E8;
+  --oro:#FFB300;
+  --apagado:#E5E5EA;
+  --sombra:0 1px 2px rgba(0,0,0,.04), 0 10px 28px rgba(0,0,0,.06);
+  --sombra-alta:0 6px 16px rgba(0,0,0,.10), 0 22px 48px rgba(0,0,0,.10);
+  --radio:20px;
+  --arcoiris:linear-gradient(90deg,
+    #FF3B30,#FF9500,#FFC300,#34C759,#00C7BE,#30B0C7,
+    #32ADE6,#007AFF,#5856D6,#AF52DE,#FF2D78,#FF6482);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(900px 420px at 12% -8%, #FFE9F1 0%, rgba(255,233,241,0) 62%),
+    radial-gradient(820px 400px at 88% -4%, #E3F0FF 0%, rgba(227,240,255,0) 62%),
+    var(--fondo);
+  background-attachment:fixed;
+  color:var(--tinta);
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:16px;line-height:1.55;letter-spacing:-.005em;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit}
+button{font-family:inherit;font-size:1rem;cursor:pointer}
+
+.envoltura{max-width:1180px;margin:0 auto;padding:0 20px 72px}
+
+/* ---------- Encabezado ---------- */
+.encabezado{padding:54px 0 30px;text-align:center}
+.marca{
+  font-family:"Bebas Neue",sans-serif;font-size:1.15rem;letter-spacing:.24em;
+  text-transform:uppercase;margin:0 0 14px;
+  background:var(--arcoiris);-webkit-background-clip:text;background-clip:text;
+  color:transparent;
+}
+.pregunta{
+  font-family:"Playfair Display",Georgia,serif;font-weight:700;
+  font-size:clamp(2rem,5.6vw,3.5rem);line-height:1.1;letter-spacing:-.02em;
+  margin:0 auto 20px;max-width:20ch;
+}
+.confeti{display:flex;gap:7px;justify-content:center;margin:0 0 22px}
+.confeti span{width:9px;height:9px;border-radius:50%;display:block}
+.entradilla{max-width:60ch;margin:0 auto;color:var(--tinta-suave);font-size:1.04rem}
+
+.ciclo-actual{
+  margin:34px auto 0;max-width:860px;padding:0 0 20px;text-align:left;
+  background:var(--tarjeta);border:1px solid var(--linea);
+  border-radius:var(--radio);box-shadow:var(--sombra);overflow:hidden;
+}
+.ciclo-actual::before{content:"";display:block;height:5px;background:var(--arcoiris)}
+.ciclo-etiqueta,.divisor-etiqueta{
+  font-family:"Bebas Neue",sans-serif;letter-spacing:.2em;text-transform:uppercase;
+  font-size:.95rem;margin:18px 0 2px;color:#5856D6;
+}
+.ciclo-actual>*:not(.tira){padding-left:24px;padding-right:24px}
+.ciclo-nombre,.divisor-nombre{
+  font-family:"Playfair Display",Georgia,serif;font-weight:700;
+  font-size:1.6rem;margin:0 0 4px;line-height:1.2;letter-spacing:-.015em;
+}
+.ciclo-fechas,.divisor-fechas{margin:0;color:var(--tinta-suave);font-size:.95rem}
+.ciclo-desc,.divisor-desc{margin:6px 0 0;color:var(--tinta-suave);font-size:.95rem}
+.ciclo-actual .tira{padding:0 24px}
+
+.resumen-general{margin:28px 0 0}
+
+/* ---------- Tira de películas ---------- */
+.tira{
+  display:flex;gap:16px;margin-top:16px;padding-bottom:6px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;
+}
+.pelicula{width:108px;flex:0 0 auto}
+.caratula{
+  display:block;width:108px;height:156px;border-radius:12px;overflow:hidden;
+  border:1px solid var(--linea);background:var(--fondo-hondo);
+}
+.caratula img{width:100%;height:100%;object-fit:cover;display:block}
+.caratula-vacia{
+  display:flex;align-items:center;justify-content:center;height:100%;padding:8px;
+  font-family:"Playfair Display",Georgia,serif;font-size:.84rem;text-align:center;line-height:1.25;
+}
+.pelicula-titulo{margin:8px 0 0;font-size:.86rem;font-weight:600;line-height:1.25}
+.pelicula-titulo a{text-decoration:none;border-bottom:1.5px solid var(--linea)}
+.pelicula-titulo a:hover{border-color:currentColor}
+.pelicula-ficha{margin:2px 0 0;font-size:.78rem;color:var(--tinta-suave)}
+
+/* ---------- Estrellas ---------- */
+.estrellas{display:inline-flex;gap:2px;vertical-align:middle}
+.estrella{fill:var(--apagado)}
+.estrella.activa{fill:var(--oro)}
+.selector-estrellas{display:flex;gap:4px}
+.boton-estrella{
+  background:none;border:0;padding:5px;min-width:46px;min-height:46px;
+  display:inline-flex;align-items:center;justify-content:center;border-radius:12px;
+  transition:transform .12s ease;
+}
+.boton-estrella:hover{transform:scale(1.12)}
+.boton-estrella:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
+
+.nota{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.95rem}
+.nota strong{font-size:1.1rem}
+.nota-votos{color:var(--tinta-suave)}
+.nota-sin{color:var(--tinta-suave);font-style:italic}
+
+/* ---------- Formulario ---------- */
+.formulario{
+  max-width:860px;margin:36px auto 50px;padding:28px;
+  background:var(--tarjeta);border:1px solid var(--linea);
+  border-radius:var(--radio);box-shadow:var(--sombra);
+}
+.campo{margin-bottom:18px;display:flex;flex-direction:column;gap:6px}
+.campo label{font-size:.86rem;font-weight:600}
+.campo input,.campo textarea,.campo select{
+  font-family:inherit;font-size:16px;color:var(--tinta);
+  padding:12px 14px;border:1px solid var(--linea);border-radius:12px;
+  background:#fff;width:100%;
+}
+.campo textarea{resize:vertical;line-height:1.55}
+.campo input:focus,.campo textarea:focus,.campo select:focus{
+  outline:2px solid #007AFF;outline-offset:1px;border-color:transparent;
+}
+.campos-fila{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.contador{margin:0;font-size:.8rem;color:var(--tinta-suave)}
+.letra-chica{font-size:.82rem;color:var(--tinta-suave);margin:10px 0 0}
+.aviso{
+  margin:0 0 14px;padding:11px 14px;border-radius:12px;
+  background:#FFE9E7;color:#C1271D;font-size:.9rem;
+}
+.exito{
+  margin:0 0 20px;padding:12px 16px;border-radius:12px;
+  background:#E4F8EA;color:#1B7A38;font-size:.94rem;font-weight:500;
+}
+
+.boton-principal{
+  background:var(--tinta);color:#fff;border:0;border-radius:999px;
+  padding:14px 26px;font-weight:600;min-height:48px;
+  transition:transform .12s ease,opacity .12s ease;
+}
+.boton-principal:hover{transform:translateY(-1px)}
+.boton-principal:disabled{opacity:.5;cursor:default;transform:none}
+.boton-principal.grande{width:100%;margin-bottom:20px}
+.boton-suave{
+  background:#fff;color:var(--tinta);border:1px solid var(--linea);
+  border-radius:999px;padding:12px 20px;min-height:46px;
+}
+.mini{
+  background:none;border:0;padding:8px 6px;font-size:.82rem;
+  color:var(--tinta-suave);text-decoration:underline;min-height:36px;
+}
+.mini.peligro{color:#C1271D}
+
+.gracias{
+  max-width:860px;margin:36px auto 44px;padding:22px 24px;text-align:center;
+  background:var(--tarjeta);border:1px solid var(--linea);border-radius:var(--radio);
+  font-family:"Playfair Display",Georgia,serif;font-size:1.15rem;box-shadow:var(--sombra);
+}
+
+/* ---------- Tarjetas ---------- */
+.rejilla{
+  display:grid;gap:20px;margin:0 0 10px;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  align-items:start;
+}
+.tarjeta{
+  position:relative;background:var(--tarjeta);border:2px solid;border-radius:var(--radio);
+  padding:24px 22px 18px;box-shadow:var(--sombra);
+  display:flex;flex-direction:column;gap:13px;
+  transition:transform .16s ease,box-shadow .16s ease;
+}
+.tarjeta:hover{transform:translateY(-3px);box-shadow:var(--sombra-alta)}
+.tarjeta-cinta{position:absolute;top:0;left:0;right:0;height:6px;
+  border-radius:calc(var(--radio) - 3px) calc(var(--radio) - 3px) 0 0}
+.tarjeta-cabeza{display:flex;gap:13px;align-items:flex-start}
+.avatar{
+  width:50px;height:50px;flex:0 0 auto;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.avatar .ico{width:29px;height:29px}
+.ico{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tarjeta-quien{min-width:0}
+.tarjeta-nombre{margin:0;font-weight:700;font-size:1.05rem;line-height:1.3;letter-spacing:-.01em}
+.tarjeta-rol{margin:1px 0 0;font-size:.86rem;color:var(--tinta-suave)}
+.tarjeta-org{margin:0;font-size:.86rem;color:var(--tinta-suave)}
+.tarjeta-texto{margin:0;white-space:pre-wrap;overflow-wrap:break-word;font-size:.98rem}
+.tarjeta-pie{
+  margin-top:auto;padding-top:10px;border-top:1px solid var(--linea);
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  font-size:.78rem;color:var(--tinta-suave);
+}
+
+/* ---------- Reacciones ---------- */
+.reacciones{position:relative;display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.pastilla{
+  display:inline-flex;align-items:center;gap:5px;
+  background:#fff;border:1.5px solid var(--linea);border-radius:999px;
+  padding:5px 11px;min-height:36px;font-size:.9rem;line-height:1;
+  transition:transform .12s ease,border-color .12s ease,background .12s ease;
+}
+.pastilla:hover{transform:scale(1.06)}
+.pastilla-emoji{font-size:1.05rem}
+.pastilla-cuenta{font-weight:600;font-size:.85rem}
+.pastilla-mas{
+  color:var(--tinta-suave);font-size:1.15rem;font-weight:400;
+  min-width:36px;justify-content:center;padding:5px 9px;
+}
+.paleta-emojis{
+  position:absolute;bottom:calc(100% + 8px);left:0;z-index:20;
+  display:grid;grid-template-columns:repeat(5,1fr);gap:2px;
+  background:#fff;border:1px solid var(--linea);border-radius:16px;
+  padding:8px;box-shadow:var(--sombra-alta);
+}
+.emoji-opcion{
+  background:none;border:0;border-radius:10px;font-size:1.35rem;line-height:1;
+  width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+  transition:transform .12s ease,background .12s ease;
+}
+.emoji-opcion:hover{background:var(--fondo-hondo);transform:scale(1.18)}
+
+.vacio{text-align:center;color:var(--tinta-suave);font-style:italic;padding:28px 10px;margin:0}
+
+/* ---------- Divisor de ciclo ---------- */
+.divisor{margin:60px 0 28px;border-radius:var(--radio);overflow:hidden;
+  background:var(--tarjeta);border:1px solid var(--linea);box-shadow:var(--sombra)}
+.arcoiris{height:6px;background:var(--arcoiris)}
+.divisor-cuerpo{padding:6px 26px 24px}
+.divisor-cuerpo .tira{margin-left:-2px}
+.divisor-datos{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:14px;flex-wrap:wrap;margin-top:18px;
+}
+.plegar{
+  background:var(--fondo-hondo);border:0;border-radius:999px;padding:11px 20px;min-height:44px;
+  font-weight:600;font-size:.92rem;color:var(--tinta);
+}
+.plegar:hover{background:var(--linea)}
+
+/* ---------- Pie ---------- */
+.pie{
+  margin-top:60px;padding-top:24px;border-top:1px solid var(--linea);
+  display:flex;justify-content:space-between;align-items:center;gap:14px;
+  color:var(--tinta-suave);font-size:.86rem;
+}
+.pie p{margin:0}
+.engranaje{
+  background:none;border:0;color:var(--tinta-suave);opacity:.4;font-size:.8rem;
+  min-width:44px;min-height:44px;border-radius:8px;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:opacity .15s ease;
+}
+.engranaje:hover,.engranaje:focus-visible{opacity:1}
+.engranaje:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
+
+/* ---------- Capas y panel ---------- */
+.capa{
+  position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;padding:18px;
+}
+.modal{
+  background:var(--tarjeta);border-radius:var(--radio);padding:28px;
+  width:100%;max-width:430px;box-shadow:var(--sombra-alta);
+}
+.modal h2{font-family:"Playfair Display",Georgia,serif;margin:0 0 8px;font-size:1.4rem}
+.modal-texto{margin:0 0 16px;color:var(--tinta-suave);font-size:.94rem}
+.modal input{
+  width:100%;font-size:16px;padding:13px 14px;border:1px solid var(--linea);
+  border-radius:12px;margin-bottom:14px;letter-spacing:.3em;text-align:center;
+}
+.modal-botones{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+
+.capa-panel{align-items:stretch;padding:0;backdrop-filter:none;-webkit-backdrop-filter:none}
+.panel{background:var(--fondo);width:100%;display:flex;flex-direction:column;overflow:hidden}
+.panel-cabeza{
+  flex:0 0 auto;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:16px 20px;border-bottom:1px solid var(--linea);background:var(--tarjeta);
+}
+.panel-cabeza h2{font-family:"Playfair Display",Georgia,serif;margin:0;font-size:1.35rem}
+.panel-cabeza div{display:flex;gap:8px;flex-wrap:wrap}
+.pestanas{
+  flex:0 0 auto;
+  display:flex;align-items:center;gap:4px;overflow-x:auto;padding:10px 20px 14px;
+  border-bottom:1px solid var(--linea);background:var(--tarjeta);
+}
+.pestana{
+  background:none;border:0;padding:10px 16px;border-radius:999px;white-space:nowrap;
+  font-size:.9rem;color:var(--tinta-suave);min-height:44px;
+}
+.pestana.activa{background:var(--tinta);color:#fff;font-weight:600}
+.panel-cuerpo{
+  flex:1 1 auto;min-height:0;padding:22px 20px 60px;overflow-y:auto;
+  max-width:900px;width:100%;margin:0 auto;
+}
+
+.cajon,.ficha{
+  background:var(--tarjeta);border:1px solid var(--linea);border-radius:var(--radio);
+  padding:22px;margin-bottom:20px;
+}
+.ficha-activa{border-color:#007AFF;box-shadow:0 0 0 3px rgba(0,122,255,.12)}
+.ficha-estado,.cajon-aviso{margin:0 0 14px;font-size:.85rem;color:var(--tinta-suave)}
+.sub{
+  font-family:"Bebas Neue",sans-serif;letter-spacing:.16em;text-transform:uppercase;
+  font-size:1rem;margin:24px 0 8px;color:var(--tinta-suave);
+}
+.lista-peliculas{list-style:none;margin:0 0 14px;padding:0}
+.lista-peliculas li{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:8px 0;border-bottom:1px solid var(--linea);font-size:.9rem;
+}
+.fila-admin{
+  background:var(--tarjeta);border:1px solid var(--linea);border-radius:14px;
+  padding:16px;margin-bottom:12px;
+}
+.fila-quien{margin:0 0 4px;font-size:.9rem;color:var(--tinta-suave)}
+.fila-estrellas{margin-left:8px}
+.fila-texto{margin:0;font-size:.94rem;white-space:pre-wrap}
+.fila-acciones{margin:6px 0 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.mensaje-central{max-width:560px;margin:14vh auto;padding:0 24px;text-align:center}
+.mensaje-central h1{font-family:"Playfair Display",Georgia,serif;font-size:1.7rem;margin:0 0 12px}
+.cargando{color:var(--tinta-suave)}
+code{background:var(--fondo-hondo);padding:2px 6px;border-radius:6px;font-size:.9em}
+
+/* ---------- Adaptación a pantallas ---------- */
+@media (max-width:900px){
+  .campos-fila{grid-template-columns:1fr 1fr}
+}
+@media (max-width:560px){
+  .envoltura{padding:0 14px 48px}
+  .encabezado{padding:36px 0 22px}
+  .campos-fila{grid-template-columns:1fr}
+  .rejilla{grid-template-columns:1fr}
+  .formulario{padding:22px}
+  .divisor-cuerpo{padding:6px 18px 22px}
+  .ciclo-actual>*:not(.tira){padding-left:18px;padding-right:18px}
+  .ciclo-actual .tira{padding:0 18px}
+  .tarjeta{padding:22px 18px 16px}
+  .paleta-emojis{grid-template-columns:repeat(5,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important}
+  .tarjeta:hover,.boton-estrella:hover,.pastilla:hover{transform:none}
+}
+</style>
+</head>
+<body>
+  <div id="raiz"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script src="config.js"></script>
+  <script src="datos.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

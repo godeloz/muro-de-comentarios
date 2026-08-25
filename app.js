@@ -13,10 +13,12 @@ const {
 } = React;
 const ICONOS = window.DATOS && window.DATOS.ICONOS || [];
 const COLORES = window.DATOS && window.DATOS.COLORES || [];
+const REACCIONES = window.DATOS && window.DATOS.REACCIONES || [];
 const CFG = window.CONFIG || {};
-const CLAVE_LOCAL = "muro-lidere:ciclos-comentados";
 const CLAVE_ULTIMO = "muro-lidere:ultimo-envio";
-const ESPERA_MS = 20 * 1000;
+const CLAVE_IDENTIDAD = "muro-lidere:identidad";
+const CLAVE_HUELLA = "muro-lidere:huella";
+const ESPERA_MS = 8 * 1000;
 const MAX_TEXTO = 1500;
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
@@ -28,6 +30,37 @@ function faltaConfigurar() {
   const u = CFG.SUPABASE_URL || "";
   const k = CFG.SUPABASE_ANON_KEY || "";
   return !u || !k || u.indexOf("PEGA_ACA") === 0 || k.indexOf("PEGA_ACA") === 0;
+}
+function guardar(clave, valor) {
+  try {
+    localStorage.setItem(clave, valor);
+  } catch (e) {/* almacenamiento bloqueado */}
+}
+function leer(clave) {
+  try {
+    return localStorage.getItem(clave);
+  } catch (e) {
+    return null;
+  }
+}
+
+/* Identificador anónimo del navegador: sirve para saber qué reacciones
+   son de quien está mirando, y para poder quitarlas. No identifica a nadie. */
+function huella() {
+  let h = leer(CLAVE_HUELLA);
+  if (!h) {
+    h = "h" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    guardar(CLAVE_HUELLA, h);
+  }
+  return h;
+}
+const HUELLA = huella();
+function leerIdentidad() {
+  try {
+    return JSON.parse(leer(CLAVE_IDENTIDAD) || "{}");
+  } catch (e) {
+    return {};
+  }
 }
 function fechaLarga(iso) {
   if (!iso) return "";
@@ -64,29 +97,11 @@ function promedioDe(lista) {
   const suma = vivos.reduce((t, c) => t + c.estrellas, 0);
   return Math.round(suma / vivos.length * 10) / 10;
 }
-function leerLocal(clave) {
-  try {
-    return JSON.parse(localStorage.getItem(clave) || "[]");
-  } catch (e) {
-    return [];
-  }
-}
-function yaComento(cicloId) {
-  return leerLocal(CLAVE_LOCAL).indexOf(cicloId) !== -1;
-}
-function registrarComentario(cicloId) {
-  try {
-    const lista = leerLocal(CLAVE_LOCAL);
-    lista.push(cicloId);
-    localStorage.setItem(CLAVE_LOCAL, JSON.stringify(lista));
-    localStorage.setItem(CLAVE_ULTIMO, String(Date.now()));
-  } catch (e) {/* modo incógnito o almacenamiento bloqueado */}
-}
 function paletaDe(indice) {
   return COLORES[indice % COLORES.length] || COLORES[0] || {
-    marco: "#5B7080",
-    texto: "#33454F",
-    suave: "#E4EBEF"
+    vivo: "#007AFF",
+    texto: "#0A5BC4",
+    suave: "#E3F0FF"
   };
 }
 function exportarCSV(filas, nombreArchivo, resumen) {
@@ -116,7 +131,8 @@ function exportarCSV(filas, nombreArchivo, resumen) {
 const TRAZO_ESTRELLA = "M12 2.7l2.85 5.78 6.38.93-4.62 4.5 1.09 6.35L12 17.26l-5.7 3-1.09-6.35-4.62-4.5 6.38-.93z";
 function Estrellas({
   valor,
-  tamano
+  tamano,
+  color
 }) {
   const t = tamano || 18;
   return /*#__PURE__*/React.createElement("span", {
@@ -128,7 +144,10 @@ function Estrellas({
     width: t,
     height: t,
     "aria-hidden": "true",
-    className: i <= valor ? "estrella activa" : "estrella"
+    className: i <= valor ? "estrella activa" : "estrella",
+    style: i <= valor && color ? {
+      fill: color
+    } : null
   }, /*#__PURE__*/React.createElement("path", {
     d: TRAZO_ESTRELLA
   }))));
@@ -155,8 +174,8 @@ function SelectorEstrellas({
     onClick: () => onChange(i)
   }, /*#__PURE__*/React.createElement("svg", {
     viewBox: "0 0 24 24",
-    width: "34",
-    height: "34",
+    width: "36",
+    height: "36",
     "aria-hidden": "true",
     className: i <= mostrado ? "estrella activa" : "estrella"
   }, /*#__PURE__*/React.createElement("path", {
@@ -172,7 +191,7 @@ function Avatar({
     className: "avatar",
     style: {
       background: paleta.suave,
-      color: paleta.marco
+      color: paleta.vivo
     }
   }, /*#__PURE__*/React.createElement("svg", {
     viewBox: "0 0 24 24",
@@ -235,7 +254,8 @@ function TiraPeliculas({
 }
 function Nota({
   promedio,
-  votos
+  votos,
+  color
 }) {
   if (!votos) return /*#__PURE__*/React.createElement("span", {
     className: "nota nota-sin"
@@ -244,24 +264,109 @@ function Nota({
     className: "nota"
   }, /*#__PURE__*/React.createElement(Estrellas, {
     valor: Math.round(promedio),
-    tamano: 16
+    tamano: 16,
+    color: color
   }), /*#__PURE__*/React.createElement("strong", null, promedio.toFixed(1)), /*#__PURE__*/React.createElement("span", {
     className: "nota-votos"
   }, plural(votos, "voz", "voces")));
 }
+
+/* ------------------------------------------------------------
+   Reacciones
+   ------------------------------------------------------------ */
+
+function Reacciones({
+  lista,
+  paleta,
+  onAlternar
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const caja = useRef(null);
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = e => {
+      if (caja.current && !caja.current.contains(e.target)) setAbierto(false);
+    };
+    const escape = e => {
+      if (e.key === "Escape") setAbierto(false);
+    };
+    document.addEventListener("mousedown", fuera);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", fuera);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [abierto]);
+  const grupos = REACCIONES.map(e => ({
+    emoji: e,
+    total: lista.filter(r => r.emoji === e).length,
+    mia: lista.some(r => r.emoji === e && r.huella === HUELLA)
+  })).filter(g => g.total > 0);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "reacciones",
+    ref: caja
+  }, grupos.map(g => /*#__PURE__*/React.createElement("button", {
+    key: g.emoji,
+    type: "button",
+    className: g.mia ? "pastilla mia" : "pastilla",
+    style: g.mia ? {
+      background: paleta.suave,
+      borderColor: paleta.vivo
+    } : null,
+    "aria-pressed": g.mia,
+    "aria-label": g.emoji + " · " + plural(g.total, "reacción", "reacciones"),
+    onClick: () => onAlternar(g.emoji)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "pastilla-emoji"
+  }, g.emoji), /*#__PURE__*/React.createElement("span", {
+    className: "pastilla-cuenta"
+  }, g.total))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "pastilla pastilla-mas",
+    "aria-label": "Reaccionar a este comentario",
+    "aria-expanded": abierto,
+    onClick: () => setAbierto(!abierto)
+  }, "+"), abierto && /*#__PURE__*/React.createElement("div", {
+    className: "paleta-emojis",
+    role: "menu"
+  }, REACCIONES.map(e => /*#__PURE__*/React.createElement("button", {
+    key: e,
+    type: "button",
+    role: "menuitem",
+    className: "emoji-opcion",
+    "aria-label": "Reaccionar con " + e,
+    onClick: () => {
+      onAlternar(e);
+      setAbierto(false);
+    }
+  }, e))));
+}
+
+/* ------------------------------------------------------------
+   Tarjetas y divisores
+   ------------------------------------------------------------ */
+
 function Tarjeta({
   comentario,
+  reacciones,
   esAdmin,
   onPapelera,
-  onEditar
+  onEditar,
+  onReaccion
 }) {
   const paleta = paletaDe(comentario.color);
   return /*#__PURE__*/React.createElement("article", {
     className: "tarjeta",
     style: {
-      borderColor: paleta.marco
+      borderColor: paleta.vivo
     }
-  }, /*#__PURE__*/React.createElement("header", {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tarjeta-cinta",
+    style: {
+      background: paleta.vivo
+    },
+    "aria-hidden": "true"
+  }), /*#__PURE__*/React.createElement("header", {
     className: "tarjeta-cabeza"
   }, /*#__PURE__*/React.createElement(Avatar, {
     icono: comentario.icono,
@@ -279,10 +384,15 @@ function Tarjeta({
     className: "tarjeta-org"
   }, comentario.organizacion))), /*#__PURE__*/React.createElement(Estrellas, {
     valor: comentario.estrellas,
-    tamano: 20
+    tamano: 21,
+    color: paleta.vivo
   }), /*#__PURE__*/React.createElement("p", {
     className: "tarjeta-texto"
-  }, comentario.texto), /*#__PURE__*/React.createElement("footer", {
+  }, comentario.texto), /*#__PURE__*/React.createElement(Reacciones, {
+    lista: reacciones,
+    paleta: paleta,
+    onAlternar: e => onReaccion(comentario.id, e)
+  }), /*#__PURE__*/React.createElement("footer", {
     className: "tarjeta-pie"
   }, /*#__PURE__*/React.createElement("time", {
     dateTime: comentario.creado_en
@@ -311,7 +421,7 @@ function Divisor({
   return /*#__PURE__*/React.createElement("section", {
     className: "divisor"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "divisor-filete",
+    className: "arcoiris",
     "aria-hidden": "true"
   }), /*#__PURE__*/React.createElement("div", {
     className: "divisor-cuerpo"
@@ -334,16 +444,15 @@ function Divisor({
     type: "button",
     className: "plegar",
     onClick: onPlegar
-  }, plegado ? "Ver " + plural(votos, "comentario", "comentarios") + " de este ciclo" : "Ocultar los comentarios de este ciclo"))), /*#__PURE__*/React.createElement("div", {
-    className: "divisor-filete",
-    "aria-hidden": "true"
-  }));
+  }, plegado ? "Ver " + plural(votos, "comentario", "comentarios") + " de este ciclo" : "Ocultar los comentarios de este ciclo"))));
 }
 function Rejilla({
   comentarios,
+  porComentario,
   esAdmin,
   onPapelera,
   onEditar,
+  onReaccion,
   vacio
 }) {
   if (!comentarios.length) return /*#__PURE__*/React.createElement("p", {
@@ -355,8 +464,10 @@ function Rejilla({
     key: c.id,
     comentario: c,
     esAdmin: esAdmin,
+    reacciones: porComentario[c.id] || [],
     onPapelera: onPapelera,
-    onEditar: onEditar
+    onEditar: onEditar,
+    onReaccion: onReaccion
   })));
 }
 
@@ -366,26 +477,28 @@ function Rejilla({
 
 function Formulario({
   ciclo,
-  onPublicar
+  onPublicar,
+  recienPublicado
 }) {
+  const guardada = leerIdentidad();
   const [estrellas, setEstrellas] = useState(0);
   const [texto, setTexto] = useState("");
-  const [nombre, setNombre] = useState("");
-  const [cargo, setCargo] = useState("");
-  const [organizacion, setOrganizacion] = useState(ciclo.organizacion_sugerida || "");
+  const [nombre, setNombre] = useState(guardada.nombre || "");
+  const [cargo, setCargo] = useState(guardada.cargo || "");
+  const [organizacion, setOrganizacion] = useState(guardada.organizacion || ciclo.organizacion_sugerida || "");
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState("");
   const trampa = useRef(null);
   useEffect(() => {
-    setOrganizacion(ciclo.organizacion_sugerida || "");
+    if (!organizacion) setOrganizacion(ciclo.organizacion_sugerida || "");
   }, [ciclo.id]);
   async function enviar(e) {
     e.preventDefault();
     if (enviando) return;
     if (trampa.current && trampa.current.value) return;
-    const ultimo = Number(localStorage.getItem(CLAVE_ULTIMO) || 0);
+    const ultimo = Number(leer(CLAVE_ULTIMO) || 0);
     if (Date.now() - ultimo < ESPERA_MS) {
-      setAviso("Espera unos segundos antes de volver a enviar.");
+      setAviso("Espera unos segundos antes de enviar otro comentario.");
       return;
     }
     if (!estrellas) return setAviso("Falta la calificación con estrellas.");
@@ -403,6 +516,14 @@ function Formulario({
         p_texto: texto,
         p_estrellas: estrellas
       });
+      guardar(CLAVE_IDENTIDAD, JSON.stringify({
+        nombre: nombre,
+        cargo: cargo,
+        organizacion: organizacion
+      }));
+      guardar(CLAVE_ULTIMO, String(Date.now()));
+      setTexto("");
+      setEstrellas(0);
     } catch (err) {
       setAviso(err.message || "No pudimos publicar tu comentario. Intenta de nuevo.");
     } finally {
@@ -413,7 +534,10 @@ function Formulario({
   return /*#__PURE__*/React.createElement("form", {
     className: "formulario",
     onSubmit: enviar
-  }, /*#__PURE__*/React.createElement("div", {
+  }, recienPublicado && /*#__PURE__*/React.createElement("p", {
+    className: "exito",
+    role: "status"
+  }, "Listo, tu comentario ya está en el muro. Puedes dejar otro cuando quieras."), /*#__PURE__*/React.createElement("div", {
     className: "campo"
   }, /*#__PURE__*/React.createElement("label", null, "Tu calificación"), /*#__PURE__*/React.createElement(SelectorEstrellas, {
     valor: estrellas,
@@ -761,6 +885,60 @@ function FichaCiclo({
     onClick: () => api.borrarCiclo(ciclo, cantidad)
   }, "Eliminar este ciclo"));
 }
+function EditorComentario({
+  comentario,
+  onGuardar,
+  onCancelar
+}) {
+  const [d, setD] = useState({
+    nombre: comentario.nombre,
+    cargo: comentario.cargo,
+    organizacion: comentario.organizacion,
+    texto: comentario.texto
+  });
+  const set = k => e => setD(Object.assign({}, d, {
+    [k]: e.target.value
+  }));
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "campos-fila"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "Nombre"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: d.nombre,
+    onChange: set("nombre")
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "Cargo"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: d.cargo,
+    onChange: set("cargo")
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "Organización"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: d.organizacion,
+    onChange: set("organizacion")
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "Comentario"), /*#__PURE__*/React.createElement("textarea", {
+    rows: "4",
+    value: d.texto,
+    onChange: set("texto")
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "letra-chica"
+  }, "La calificación con estrellas no se edita: si el comentario no debería estar, va a la papelera."), /*#__PURE__*/React.createElement("p", {
+    className: "fila-acciones"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "boton-suave",
+    onClick: onCancelar
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "boton-principal",
+    onClick: () => onGuardar(d)
+  }, "Guardar")));
+}
 function Panel({
   estado,
   api,
@@ -944,60 +1122,6 @@ function Panel({
     onClick: () => api.exportar(filtro)
   }, "Descargar CSV")))));
 }
-function EditorComentario({
-  comentario,
-  onGuardar,
-  onCancelar
-}) {
-  const [d, setD] = useState({
-    nombre: comentario.nombre,
-    cargo: comentario.cargo,
-    organizacion: comentario.organizacion,
-    texto: comentario.texto
-  });
-  const set = k => e => setD(Object.assign({}, d, {
-    [k]: e.target.value
-  }));
-  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "campos-fila"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "campo"
-  }, /*#__PURE__*/React.createElement("label", null, "Nombre"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: d.nombre,
-    onChange: set("nombre")
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "campo"
-  }, /*#__PURE__*/React.createElement("label", null, "Cargo"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: d.cargo,
-    onChange: set("cargo")
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "campo"
-  }, /*#__PURE__*/React.createElement("label", null, "Organización"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: d.organizacion,
-    onChange: set("organizacion")
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "campo"
-  }, /*#__PURE__*/React.createElement("label", null, "Comentario"), /*#__PURE__*/React.createElement("textarea", {
-    rows: "4",
-    value: d.texto,
-    onChange: set("texto")
-  })), /*#__PURE__*/React.createElement("p", {
-    className: "letra-chica"
-  }, "La calificación con estrellas no se edita: si el comentario no debería estar, va a la papelera."), /*#__PURE__*/React.createElement("p", {
-    className: "fila-acciones"
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "boton-suave",
-    onClick: onCancelar
-  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "boton-principal",
-    onClick: () => onGuardar(d)
-  }, "Guardar")));
-}
 
 /* ------------------------------------------------------------
    Aplicación
@@ -1014,25 +1138,26 @@ function App() {
   const [ciclos, setCiclos] = useState([]);
   const [peliculas, setPeliculas] = useState([]);
   const [comentarios, setComentarios] = useState([]);
+  const [reacciones, setReacciones] = useState([]);
   const [sesion, setSesion] = useState(false);
   const [pidiendoPin, setPidiendoPin] = useState(false);
   const [verPanel, setVerPanel] = useState(false);
   const [plegados, setPlegados] = useState({});
-  const [gracias, setGracias] = useState(false);
+  const [recienPublicado, setRecienPublicado] = useState(false);
   async function cargar() {
     setError("");
     try {
-      const consultaComentarios = db.from("comentarios").select("*").order("creado_en", {
-        ascending: false
-      });
-      const [rc, rci, rp, rcom] = await Promise.all([db.from("configuracion").select("*").eq("id", 1).single(), db.from("ciclos").select("*"), db.from("peliculas").select("*").order("orden", {
+      const [rc, rci, rp, rcom, rre] = await Promise.all([db.from("configuracion").select("*").eq("id", 1).single(), db.from("ciclos").select("*"), db.from("peliculas").select("*").order("orden", {
         ascending: true
-      }), consultaComentarios]);
+      }), db.from("comentarios").select("*").order("creado_en", {
+        ascending: false
+      }), db.from("reacciones").select("*")]);
       if (rc.error) throw rc.error;
       setConfig(rc.data);
       setCiclos(rci.data || []);
       setPeliculas(rp.data || []);
       setComentarios(rcom.data || []);
+      setReacciones(rre.data || []);
     } catch (e) {
       setError("No pudimos cargar el muro. Revisa la conexión y vuelve a intentarlo.");
     } finally {
@@ -1047,8 +1172,7 @@ function App() {
     db.auth.getSession().then(({
       data
     }) => {
-      const hay = !!(data && data.session);
-      setSesion(hay);
+      setSesion(!!(data && data.session));
       cargar();
     });
     if (window.location.hash === "#admin") setPidiendoPin(true);
@@ -1067,6 +1191,14 @@ function App() {
       return String(fb).localeCompare(String(fa));
     });
   }, [ciclos, config]);
+  const porComentario = useMemo(() => {
+    const mapa = {};
+    reacciones.forEach(r => {
+      if (!mapa[r.comentario_id]) mapa[r.comentario_id] = [];
+      mapa[r.comentario_id].push(r);
+    });
+    return mapa;
+  }, [reacciones]);
   const visibles = comentarios.filter(c => !c.eliminado);
   const sinCiclo = visibles.filter(c => !c.ciclo_id);
 
@@ -1078,9 +1210,28 @@ function App() {
       error: err
     } = await db.rpc("crear_comentario", datos);
     if (err) throw new Error(err.message);
-    registrarComentario(cicloActivo.id);
     setComentarios([data].concat(comentarios));
-    setGracias(true);
+    setRecienPublicado(true);
+  }
+  async function alternarReaccion(comentarioId, emoji) {
+    const mia = reacciones.some(r => r.comentario_id === comentarioId && r.emoji === emoji && r.huella === HUELLA);
+
+    /* Respuesta inmediata; si el servidor falla, se revierte */
+    const antes = reacciones;
+    setReacciones(mia ? reacciones.filter(r => !(r.comentario_id === comentarioId && r.emoji === emoji && r.huella === HUELLA)) : reacciones.concat([{
+      id: "temp-" + Date.now(),
+      comentario_id: comentarioId,
+      emoji: emoji,
+      huella: HUELLA
+    }]));
+    const {
+      error: err
+    } = await db.rpc("alternar_reaccion", {
+      p_comentario: comentarioId,
+      p_emoji: emoji,
+      p_huella: HUELLA
+    });
+    if (err) setReacciones(antes);
   }
   async function entrar(pin) {
     const {
@@ -1221,6 +1372,7 @@ function App() {
         cargo: c.cargo,
         organizacion: c.organizacion,
         estrellas: c.estrellas,
+        reacciones: (porComentario[c.id] || []).length,
         comentario: c.texto
       }));
       exportarCSV(filas, "muro-liderazgo-en-escena", resumen);
@@ -1261,7 +1413,15 @@ function App() {
     className: "marca"
   }, config.titulo_muro), /*#__PURE__*/React.createElement("h1", {
     className: "pregunta"
-  }, config.pregunta), /*#__PURE__*/React.createElement("p", {
+  }, config.pregunta), /*#__PURE__*/React.createElement("div", {
+    className: "confeti",
+    "aria-hidden": "true"
+  }, COLORES.map((c, i) => /*#__PURE__*/React.createElement("span", {
+    key: i,
+    style: {
+      background: c.vivo
+    }
+  }))), /*#__PURE__*/React.createElement("p", {
     className: "entradilla"
   }, config.entradilla), cicloActivo && /*#__PURE__*/React.createElement("div", {
     className: "ciclo-actual"
@@ -1280,18 +1440,19 @@ function App() {
   }, /*#__PURE__*/React.createElement(Nota, {
     promedio: promGeneral,
     votos: totalVoces
-  }))), /*#__PURE__*/React.createElement("main", null, cicloActivo ? gracias || yaComento(cicloActivo.id) ? /*#__PURE__*/React.createElement("p", {
-    className: "gracias"
-  }, gracias ? "Listo. Tu comentario ya está en el muro." : "Ya dejaste tu comentario en este ciclo.") : /*#__PURE__*/React.createElement(Formulario, {
+  }))), /*#__PURE__*/React.createElement("main", null, cicloActivo ? /*#__PURE__*/React.createElement(Formulario, {
     ciclo: cicloActivo,
-    onPublicar: publicar
+    onPublicar: publicar,
+    recienPublicado: recienPublicado
   }) : /*#__PURE__*/React.createElement("p", {
     className: "gracias"
   }, "La recepción está cerrada por ahora. Puedes seguir leyendo lo que dejaron los ciclos anteriores."), cicloActivo && /*#__PURE__*/React.createElement(Rejilla, {
     comentarios: visibles.filter(c => c.ciclo_id === cicloActivo.id),
+    porComentario: porComentario,
     esAdmin: sesion,
     onPapelera: api.aPapelera,
     onEditar: () => setVerPanel(true),
+    onReaccion: alternarReaccion,
     vacio: "Todavía no hay comentarios en este ciclo. El primero abre la conversación."
   }), cerrados.map(c => {
     const suyos = visibles.filter(x => x.ciclo_id === c.id);
@@ -1304,19 +1465,21 @@ function App() {
       plegado: plegado,
       peliculas: peliculas.filter(p => p.ciclo_id === c.id),
       onPlegar: () => setPlegados(Object.assign({}, plegados, {
-        [c.id]: !plegado ? true : false
+        [c.id]: !plegado
       }))
     }), !plegado && /*#__PURE__*/React.createElement(Rejilla, {
       comentarios: suyos,
+      porComentario: porComentario,
       esAdmin: sesion,
       onPapelera: api.aPapelera,
       onEditar: () => setVerPanel(true),
+      onReaccion: alternarReaccion,
       vacio: "Este ciclo cerró sin comentarios."
     }));
   }), sinCiclo.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("section", {
     className: "divisor"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "divisor-filete",
+    className: "arcoiris",
     "aria-hidden": "true"
   }), /*#__PURE__*/React.createElement("div", {
     className: "divisor-cuerpo"
@@ -1326,14 +1489,13 @@ function App() {
     className: "divisor-nombre"
   }, "Comentarios anteriores"), /*#__PURE__*/React.createElement("p", {
     className: "divisor-desc"
-  }, plural(sinCiclo.length, "comentario", "comentarios"), " que quedaron fuera de un ciclo.")), /*#__PURE__*/React.createElement("div", {
-    className: "divisor-filete",
-    "aria-hidden": "true"
-  })), /*#__PURE__*/React.createElement(Rejilla, {
+  }, plural(sinCiclo.length, "comentario", "comentarios"), " que quedaron fuera de un ciclo."))), /*#__PURE__*/React.createElement(Rejilla, {
     comentarios: sinCiclo,
+    porComentario: porComentario,
     esAdmin: sesion,
     onPapelera: api.aPapelera,
     onEditar: () => setVerPanel(true),
+    onReaccion: alternarReaccion,
     vacio: ""
   }))), /*#__PURE__*/React.createElement("footer", {
     className: "pie"

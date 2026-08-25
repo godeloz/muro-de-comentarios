@@ -1,12 +1,13 @@
 /* ============================================================
    MURO LIDERAZGO EN ESCENA · Recursos incrustados
    ------------------------------------------------------------
-   Doce íconos de trazo y doce colores, repartidos en dos barajas
-   independientes: 144 combinaciones antes de repetir una tarjeta.
+   Doce íconos de trazo, doce colores y diez reacciones.
 
-   Los íconos son SVG sobre una caja de 24 × 24 y heredan el color
-   del marco. Para cambiarlos más adelante basta reemplazar las
-   cadenas de este archivo: no hay que tocar nada más.
+   Los íconos y los colores se reparten en dos barajas
+   independientes: 144 combinaciones antes de repetir una tarjeta.
+   Las estrellas de cada tarjeta toman el color de su tarjeta,
+   así que el muro lleno se ve como una fiesta y no como un
+   formulario.
    ============================================================ */
 
 window.DATOS = {
@@ -83,22 +84,28 @@ window.DATOS = {
     '<path d="M17.6 4.2c0 6 2.4 8.4 2.4 16h-5.2c-1-8-1-10.4-1-16"/>'
   ],
 
-  /* Colores 0 a 11 · marco de la tarjeta y color de texto.
-     El tono oscuro es el que garantiza el contraste sobre fondo claro.
-     No hay dorados en la paleta: el dorado queda reservado a las estrellas. */
+  /* Colores 0 a 11
+     vivo   · marco de la tarjeta, estrellas, ícono del avatar
+     texto  · nombre y datos duros (contraste alto sobre blanco)
+     suave  · fondo del avatar y de las reacciones marcadas       */
   COLORES: [
-    { marco: "#C0674B", texto: "#7A3A26", suave: "#F6E6DF" }, /* 00 terracota   */
-    { marco: "#7D8C4E", texto: "#4A5527", suave: "#EDF0DF" }, /* 01 oliva       */
-    { marco: "#8E5A79", texto: "#5A3049", suave: "#F3E5EE" }, /* 02 ciruela     */
-    { marco: "#5B7080", texto: "#33454F", suave: "#E4EBEF" }, /* 03 pizarra     */
-    { marco: "#3E7278", texto: "#22474B", suave: "#DFEDEE" }, /* 04 petróleo    */
-    { marco: "#A6503F", texto: "#6B2E22", suave: "#F6E2DD" }, /* 05 ladrillo    */
-    { marco: "#5E8367", texto: "#35513C", suave: "#E3EFE6" }, /* 06 musgo       */
-    { marco: "#7C74A8", texto: "#4B4570", suave: "#EAE7F3" }, /* 07 lavanda     */
-    { marco: "#8C4652", texto: "#582730", suave: "#F4E1E4" }, /* 08 vino        */
-    { marco: "#55618F", texto: "#333C60", suave: "#E5E8F2" }, /* 09 índigo      */
-    { marco: "#B57840", texto: "#71481F", suave: "#F7E9D9" }, /* 10 cobre       */
-    { marco: "#4A6A94", texto: "#2A4162", suave: "#E2EAF3" }  /* 11 azul acero  */
-  ]
+    { vivo: "#FF3B30", texto: "#C1271D", suave: "#FFE9E7" }, /* 00 rojo     */
+    { vivo: "#FF9500", texto: "#A85E00", suave: "#FFF1DE" }, /* 01 naranja  */
+    { vivo: "#FFC300", texto: "#8A6600", suave: "#FFF7D9" }, /* 02 amarillo */
+    { vivo: "#34C759", texto: "#1B7A38", suave: "#E4F8EA" }, /* 03 verde    */
+    { vivo: "#00C7BE", texto: "#00736D", suave: "#DCF7F5" }, /* 04 menta    */
+    { vivo: "#30B0C7", texto: "#146B7D", suave: "#E0F3F7" }, /* 05 turquesa */
+    { vivo: "#32ADE6", texto: "#146A93", suave: "#E1F2FB" }, /* 06 cielo    */
+    { vivo: "#007AFF", texto: "#0A5BC4", suave: "#E3F0FF" }, /* 07 azul     */
+    { vivo: "#5856D6", texto: "#3B39A6", suave: "#EAE9FB" }, /* 08 índigo   */
+    { vivo: "#AF52DE", texto: "#7B2FA0", suave: "#F5E8FC" }, /* 09 violeta  */
+    { vivo: "#FF2D78", texto: "#C0164F", suave: "#FFE6EE" }, /* 10 rosa     */
+    { vivo: "#FF6482", texto: "#C03050", suave: "#FFE9ED" }  /* 11 coral    */
+  ],
+
+  /* Reacciones disponibles. Si cambias esta lista, cambia también
+     la lista equivalente dentro de alternar_reaccion() en el SQL:
+     el servidor rechaza cualquier emoji que no esté en las dos. */
+  REACCIONES: ["💡", "❤️", "😂", "😢", "🙌", "👍", "😮", "🤔", "😍", "🥹"]
 
 };

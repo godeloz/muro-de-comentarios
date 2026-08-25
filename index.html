@@ -210,10 +210,13 @@ button{font-family:inherit;font-size:1rem;cursor:pointer}
 }
 .pie p{margin:0}
 .engranaje{
-  background:none;border:0;color:var(--linea);font-size:.8rem;
+  background:none;border:0;color:var(--tinta-suave);opacity:.4;font-size:.8rem;
   min-width:44px;min-height:44px;border-radius:8px;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:opacity .15s ease;
 }
-.engranaje:hover,.engranaje:focus-visible{color:var(--tinta-suave)}
+.engranaje:hover,.engranaje:focus-visible{opacity:1}
+.engranaje:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
 
 /* ---------- Capas y panel ---------- */
 .capa{

@@ -8,6 +8,7 @@
 const {
   useState,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef
 } = React;
@@ -96,6 +97,35 @@ function promedioDe(lista) {
   if (!vivos.length) return null;
   const suma = vivos.reduce((t, c) => t + c.estrellas, 0);
   return Math.round(suma / vivos.length * 10) / 10;
+}
+
+/* Clave para reconocer la misma película en distintos ciclos:
+   título sin tildes ni mayúsculas, más el año. */
+function clavePelicula(p) {
+  const t = String(p.titulo || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9ñ]+/g, " ").trim();
+  return t + "|" + (p.anio || "");
+}
+
+/* El banco son todas las películas que ya pasaron por algún ciclo,
+   sin repetir. Si una película aparece varias veces, gana la ficha
+   más completa (con imagen y enlace). */
+function bancoDe(peliculas) {
+  const mapa = {};
+  const peso = p => (p.imagen_url ? 2 : 0) + (p.enlace_url ? 1 : 0) + (p.director ? 1 : 0);
+  peliculas.forEach(p => {
+    const k = clavePelicula(p);
+    if (!mapa[k] || peso(p) > peso(mapa[k])) mapa[k] = p;
+  });
+  return Object.keys(mapa).map(k => mapa[k]).sort((a, b) => String(a.titulo).localeCompare(String(b.titulo), "es"));
+}
+function fichaLimpia(p) {
+  return {
+    titulo: p.titulo || "",
+    director: p.director || "",
+    anio: p.anio || "",
+    imagen_url: p.imagen_url || "",
+    enlace_url: p.enlace_url || ""
+  };
 }
 function paletaDe(indice) {
   return COLORES[indice % COLORES.length] || COLORES[0] || {
@@ -346,13 +376,37 @@ function Reacciones({
    Tarjetas y divisores
    ------------------------------------------------------------ */
 
+/* Texto de la tarjeta. En el carrusel se recorta a unas líneas
+   y aparece "Leer completo" solo si de verdad hay más texto. */
+function TextoTarjeta({
+  texto,
+  recortar
+}) {
+  const caja = useRef(null);
+  const [abierto, setAbierto] = useState(false);
+  const [sobra, setSobra] = useState(false);
+  useLayoutEffect(() => {
+    if (!recortar || abierto || !caja.current) return;
+    setSobra(caja.current.scrollHeight > caja.current.clientHeight + 2);
+  }, [texto, recortar, abierto]);
+  const recortado = recortar && !abierto;
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    ref: caja,
+    className: recortado ? "tarjeta-texto recortado" : "tarjeta-texto"
+  }, texto), recortar && (sobra || abierto) && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "leer-mas",
+    onClick: () => setAbierto(!abierto)
+  }, abierto ? "Leer menos" : "Leer completo"));
+}
 function Tarjeta({
   comentario,
   reacciones,
   esAdmin,
   onPapelera,
   onEditar,
-  onReaccion
+  onReaccion,
+  recortar
 }) {
   const paleta = paletaDe(comentario.color);
   return /*#__PURE__*/React.createElement("article", {
@@ -386,9 +440,10 @@ function Tarjeta({
     valor: comentario.estrellas,
     tamano: 21,
     color: paleta.vivo
-  }), /*#__PURE__*/React.createElement("p", {
-    className: "tarjeta-texto"
-  }, comentario.texto), /*#__PURE__*/React.createElement(Reacciones, {
+  }), /*#__PURE__*/React.createElement(TextoTarjeta, {
+    texto: comentario.texto,
+    recortar: recortar
+  }), /*#__PURE__*/React.createElement(Reacciones, {
     lista: reacciones,
     paleta: paleta,
     onAlternar: e => onReaccion(comentario.id, e)
@@ -408,16 +463,90 @@ function Tarjeta({
     onClick: () => onPapelera(comentario)
   }, "A la papelera"))));
 }
+
+/* Carrusel horizontal de un ciclo cerrado: se desliza con el dedo,
+   con la rueda del ratón o con las flechas. */
+function Carrusel({
+  comentarios,
+  porComentario,
+  esAdmin,
+  onPapelera,
+  onEditar,
+  onReaccion
+}) {
+  const pista = useRef(null);
+  const [bordes, setBordes] = useState({
+    inicio: true,
+    fin: true
+  });
+  function medir() {
+    const p = pista.current;
+    if (!p) return;
+    setBordes({
+      inicio: p.scrollLeft <= 4,
+      fin: p.scrollLeft + p.clientWidth >= p.scrollWidth - 4
+    });
+  }
+  useEffect(() => {
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [comentarios.length]);
+  function mover(sentido) {
+    const p = pista.current;
+    if (!p) return;
+    p.scrollBy({
+      left: sentido * p.clientWidth * 0.85,
+      behavior: "smooth"
+    });
+  }
+  const sinFlechas = bordes.inicio && bordes.fin;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "carrusel"
+  }, !sinFlechas && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "carrusel-flecha izquierda",
+    disabled: bordes.inicio,
+    "aria-label": "Comentarios anteriores",
+    onClick: () => mover(-1)
+  }, "‹"), /*#__PURE__*/React.createElement("div", {
+    className: "carrusel-pista",
+    ref: pista,
+    onScroll: medir,
+    tabIndex: "0",
+    "aria-label": plural(comentarios.length, "comentario", "comentarios") + " en carrusel"
+  }, comentarios.map(c => /*#__PURE__*/React.createElement("div", {
+    className: "carrusel-item",
+    key: c.id
+  }, /*#__PURE__*/React.createElement(Tarjeta, {
+    comentario: c,
+    esAdmin: esAdmin,
+    recortar: true,
+    reacciones: porComentario[c.id] || [],
+    onPapelera: onPapelera,
+    onEditar: onEditar,
+    onReaccion: onReaccion
+  })))), !sinFlechas && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "carrusel-flecha derecha",
+    disabled: bordes.fin,
+    "aria-label": "Comentarios siguientes",
+    onClick: () => mover(1)
+  }, "›"));
+}
 function Divisor({
+  etiqueta,
+  nombre,
   ciclo,
   peliculas,
   comentarios,
-  plegado,
-  onPlegar
+  enMuro,
+  onCambiarVista
 }) {
   const prom = promedioDe(comentarios);
   const votos = comentarios.filter(c => !c.eliminado).length;
-  const rango = rangoFechas(ciclo.fecha_inicio, ciclo.fecha_fin);
+  const rango = ciclo ? rangoFechas(ciclo.fecha_inicio, ciclo.fecha_fin) : "";
+  const descripcion = ciclo ? ciclo.descripcion : "";
   return /*#__PURE__*/React.createElement("section", {
     className: "divisor"
   }, /*#__PURE__*/React.createElement("div", {
@@ -427,24 +556,71 @@ function Divisor({
     className: "divisor-cuerpo"
   }, /*#__PURE__*/React.createElement("p", {
     className: "divisor-etiqueta"
-  }, "Ciclo cerrado"), /*#__PURE__*/React.createElement("h2", {
+  }, etiqueta), /*#__PURE__*/React.createElement("h2", {
     className: "divisor-nombre"
-  }, ciclo.nombre), rango && /*#__PURE__*/React.createElement("p", {
+  }, nombre), rango && /*#__PURE__*/React.createElement("p", {
     className: "divisor-fechas"
-  }, rango), ciclo.descripcion && /*#__PURE__*/React.createElement("p", {
+  }, rango), descripcion && /*#__PURE__*/React.createElement("p", {
     className: "divisor-desc"
-  }, ciclo.descripcion), /*#__PURE__*/React.createElement(TiraPeliculas, {
-    peliculas: peliculas
+  }, descripcion), /*#__PURE__*/React.createElement(TiraPeliculas, {
+    peliculas: peliculas || []
   }), /*#__PURE__*/React.createElement("div", {
     className: "divisor-datos"
   }, /*#__PURE__*/React.createElement(Nota, {
     promedio: prom,
     votos: votos
-  }), /*#__PURE__*/React.createElement("button", {
+  }), votos > 1 && /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "plegar",
-    onClick: onPlegar
-  }, plegado ? "Ver " + plural(votos, "comentario", "comentarios") + " de este ciclo" : "Ocultar los comentarios de este ciclo"))));
+    onClick: onCambiarVista
+  }, enMuro ? "Volver al carrusel" : "Ver los " + votos + " comentarios en muro"))));
+}
+
+/* Un ciclo cerrado completo: divisor + comentarios en carrusel o en muro */
+function BloqueCerrado({
+  id,
+  etiqueta,
+  nombre,
+  ciclo,
+  peliculas,
+  comentarios,
+  vacio,
+  enMuro,
+  onCambiarVista,
+  porComentario,
+  esAdmin,
+  onPapelera,
+  onEditar,
+  onReaccion
+}) {
+  const comunes = {
+    porComentario,
+    esAdmin,
+    onPapelera,
+    onEditar,
+    onReaccion
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bloque-cerrado",
+    id: id
+  }, /*#__PURE__*/React.createElement(Divisor, {
+    etiqueta: etiqueta,
+    nombre: nombre,
+    ciclo: ciclo,
+    peliculas: peliculas,
+    comentarios: comentarios,
+    enMuro: enMuro,
+    onCambiarVista: onCambiarVista
+  }), !comentarios.length ? vacio ? /*#__PURE__*/React.createElement("p", {
+    className: "vacio"
+  }, vacio) : null : enMuro ? /*#__PURE__*/React.createElement(Rejilla, {
+    comentarios: comentarios,
+    vacio: "",
+    ...comunes
+  }) : /*#__PURE__*/React.createElement(Carrusel, {
+    comentarios: comentarios,
+    ...comunes
+  }));
 }
 function Rejilla({
   comentarios,
@@ -469,6 +645,115 @@ function Rejilla({
     onEditar: onEditar,
     onReaccion: onReaccion
   })));
+}
+
+/* ------------------------------------------------------------
+   Línea de tiempo de ciclos
+   En pantallas anchas es una columna fija a la izquierda;
+   en pantallas angostas, una franja horizontal pegada arriba.
+   ------------------------------------------------------------ */
+
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function mesDe(ciclo) {
+  const f = fechaSuelta(ciclo.fecha_inicio);
+  if (f) return MESES_CORTOS[f.mes] + " " + f.anio;
+  if (ciclo.creado_en) {
+    const d = new Date(ciclo.creado_en);
+    return MESES_CORTOS[d.getMonth()] + " " + d.getFullYear();
+  }
+  return "";
+}
+function LineaTiempo({
+  tramos
+}) {
+  const [actual, setActual] = useState(tramos.length ? tramos[0].id : null);
+  const franja = useRef(null);
+
+  /* Resalta el ciclo que está a la vista */
+  useEffect(() => {
+    let pendiente = false;
+    function revisar() {
+      pendiente = false;
+      const limite = window.innerHeight * 0.35;
+      let elegido = tramos.length ? tramos[0].id : null;
+      tramos.forEach(t => {
+        const el = document.getElementById(t.id);
+        if (el && el.getBoundingClientRect().top <= limite) elegido = t.id;
+      });
+      /* al llegar al final de la página gana el último */
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4 && tramos.length) {
+        elegido = tramos[tramos.length - 1].id;
+      }
+      setActual(elegido);
+    }
+    function alDesplazar() {
+      if (pendiente) return;
+      pendiente = true;
+      requestAnimationFrame(revisar);
+    }
+    revisar();
+    window.addEventListener("scroll", alDesplazar, {
+      passive: true
+    });
+    window.addEventListener("resize", alDesplazar);
+    return () => {
+      window.removeEventListener("scroll", alDesplazar);
+      window.removeEventListener("resize", alDesplazar);
+    };
+  }, [tramos.map(t => t.id).join(",")]);
+
+  /* En la franja horizontal, mantiene a la vista el ciclo resaltado */
+  useEffect(() => {
+    const f = franja.current;
+    if (!f || f.scrollWidth <= f.clientWidth) return;
+    const boton = f.querySelector('[data-tramo="' + actual + '"]');
+    if (!boton) return;
+    const destino = boton.offsetLeft - (f.clientWidth - boton.offsetWidth) / 2;
+    f.scrollTo({
+      left: Math.max(0, destino),
+      behavior: "smooth"
+    });
+  }, [actual]);
+  function ir(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+    setActual(id);
+  }
+  return /*#__PURE__*/React.createElement("nav", {
+    className: "linea-tiempo",
+    "aria-label": "Ciclos"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "linea-titulo"
+  }, "Ciclos"), /*#__PURE__*/React.createElement("ol", {
+    className: "linea-lista",
+    ref: franja
+  }, tramos.map(t => /*#__PURE__*/React.createElement("li", {
+    key: t.id
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    "data-tramo": t.id,
+    className: "tramo" + (t.id === actual ? " actual" : "") + (t.activo ? " vivo" : ""),
+    "aria-current": t.id === actual ? "true" : undefined,
+    title: t.nombre,
+    onClick: () => ir(t.id)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tramo-punto",
+    "aria-hidden": "true"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "tramo-texto"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tramo-cuando"
+  }, t.cuando), /*#__PURE__*/React.createElement("span", {
+    className: "tramo-nombre"
+  }, t.nombre), /*#__PURE__*/React.createElement("span", {
+    className: "tramo-corto"
+  }, t.corto || t.nombre), /*#__PURE__*/React.createElement("span", {
+    className: "tramo-voces"
+  }, plural(t.voces, "voz", "voces"))))))));
 }
 
 /* ------------------------------------------------------------
@@ -673,27 +958,169 @@ function ModalPin({
    Panel de administración
    ------------------------------------------------------------ */
 
+/* Buscador del banco: todas las películas que ya pasaron por algún ciclo.
+   Las que ya están en la lista actual no aparecen. */
+function BuscadorBanco({
+  banco,
+  yaEstan,
+  onElegir
+}) {
+  const [q, setQ] = useState("");
+  const presentes = {};
+  yaEstan.forEach(p => {
+    presentes[clavePelicula(p)] = true;
+  });
+  const disponibles = banco.filter(p => !presentes[clavePelicula(p)]);
+  const buscar = q.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const resultados = disponibles.filter(p => {
+    if (!buscar) return true;
+    const pajar = [p.titulo, p.director, p.anio].join(" ").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    return pajar.indexOf(buscar) !== -1;
+  });
+  if (!banco.length) {
+    return /*#__PURE__*/React.createElement("p", {
+      className: "letra-chica"
+    }, "El banco está vacío. Cada película que agregues queda guardada acá para los próximos ciclos.");
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "banco"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "Buscar en el banco (", plural(disponibles.length, "película disponible", "películas disponibles"), ")"), /*#__PURE__*/React.createElement("input", {
+    type: "search",
+    value: q,
+    placeholder: "Título, director o año",
+    onChange: e => setQ(e.target.value)
+  })), /*#__PURE__*/React.createElement("ul", {
+    className: "banco-lista"
+  }, resultados.map(p => /*#__PURE__*/React.createElement("li", {
+    key: clavePelicula(p)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "banco-miniatura"
+  }, p.imagen_url ? /*#__PURE__*/React.createElement("img", {
+    src: p.imagen_url,
+    alt: "",
+    loading: "lazy"
+  }) : null), /*#__PURE__*/React.createElement("span", {
+    className: "banco-datos"
+  }, /*#__PURE__*/React.createElement("strong", null, p.titulo), /*#__PURE__*/React.createElement("span", null, [p.director, p.anio].filter(Boolean).join(" · "))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "boton-suave chico",
+    onClick: () => onElegir(fichaLimpia(p))
+  }, "Agregar"))), !resultados.length && /*#__PURE__*/React.createElement("li", {
+    className: "banco-nada"
+  }, "Nada coincide con esa búsqueda.")));
+}
+
+/* Formulario para una película que todavía no está en el banco */
+function FormularioPelicula({
+  onAgregar
+}) {
+  const vacia = {
+    titulo: "",
+    director: "",
+    anio: "",
+    imagen_url: "",
+    enlace_url: ""
+  };
+  const [peli, setPeli] = useState(vacia);
+  const setP = k => e => setPeli(Object.assign({}, peli, {
+    [k]: e.target.value
+  }));
+  return /*#__PURE__*/React.createElement("details", {
+    className: "pelicula-nueva"
+  }, /*#__PURE__*/React.createElement("summary", null, "Agregar una película que no está en el banco"), /*#__PURE__*/React.createElement("div", {
+    className: "campos-fila"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "Título"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: peli.titulo,
+    onChange: setP("titulo")
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "Director"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: peli.director,
+    onChange: setP("director")
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "Año"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: peli.anio,
+    onChange: setP("anio")
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "campos-fila"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "URL de la imagen"), /*#__PURE__*/React.createElement("input", {
+    type: "url",
+    value: peli.imagen_url,
+    onChange: setP("imagen_url")
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "campo"
+  }, /*#__PURE__*/React.createElement("label", null, "Enlace de la película"), /*#__PURE__*/React.createElement("input", {
+    type: "url",
+    value: peli.enlace_url,
+    onChange: setP("enlace_url")
+  }))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "boton-suave",
+    onClick: async () => {
+      if (!peli.titulo.trim()) return;
+      const ok = await onAgregar(peli);
+      if (ok !== false) setPeli(vacia);
+    }
+  }, "Agregar película"), /*#__PURE__*/React.createElement("p", {
+    className: "letra-chica"
+  }, "Queda guardada en el banco para los próximos ciclos."));
+}
 function CajonCiclo({
+  ciclos,
+  peliculasTodas,
+  banco,
   onAbrir,
   onCancelar
 }) {
-  const [d, setD] = useState({
+  const vacio = {
     nombre: "",
     inicio: "",
     fin: "",
     descripcion: "",
     organizacion: ""
-  });
+  };
+  const [d, setD] = useState(vacio);
+  const [origen, setOrigen] = useState("");
+  const [pelis, setPelis] = useState([]);
   const [enviando, setEnviando] = useState(false);
   const set = k => e => setD(Object.assign({}, d, {
     [k]: e.target.value
   }));
+  const ordenados = ciclos.slice().sort((a, b) => String(b.creado_en || "").localeCompare(String(a.creado_en || "")));
+  function clonarDe(id) {
+    setOrigen(id);
+    if (!id) {
+      setD(vacio);
+      setPelis([]);
+      return;
+    }
+    const c = ciclos.filter(x => x.id === id)[0];
+    if (!c) return;
+    setD({
+      nombre: c.nombre,
+      inicio: "",
+      fin: "",
+      descripcion: c.descripcion || "",
+      organizacion: c.organizacion_sugerida || ""
+    });
+    setPelis(peliculasTodas.filter(p => p.ciclo_id === id).map(fichaLimpia));
+  }
   async function enviar(e) {
     e.preventDefault();
     if (enviando || !d.nombre.trim()) return;
     setEnviando(true);
     try {
-      await onAbrir(d);
+      await onAbrir(d, pelis);
     } finally {
       setEnviando(false);
     }
@@ -703,7 +1130,19 @@ function CajonCiclo({
     onSubmit: enviar
   }, /*#__PURE__*/React.createElement("p", {
     className: "cajon-aviso"
-  }, "Al confirmar, el ciclo que esté abierto se cierra y aparece su divisor en el muro. Los comentarios nuevos empiezan a colgar del ciclo que estás creando."), /*#__PURE__*/React.createElement("div", {
+  }, "Al confirmar, el ciclo que esté abierto se cierra y aparece su divisor en el muro. Los comentarios nuevos empiezan a colgar del ciclo que estás creando."), ciclos.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "campo clonar"
+  }, /*#__PURE__*/React.createElement("label", null, "Partir de un ciclo existente"), /*#__PURE__*/React.createElement("select", {
+    value: origen,
+    onChange: e => clonarDe(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Empezar en blanco"), ordenados.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.nombre, c.fecha_inicio ? " · " + rangoFechas(c.fecha_inicio, c.fecha_fin) : ""))), origen && /*#__PURE__*/React.createElement("p", {
+    className: "letra-chica"
+  }, "Se copiaron el nombre, la descripción, la organización y las películas. Las fechas quedan en blanco para que pongas las del ciclo nuevo. Los comentarios no se copian.")), /*#__PURE__*/React.createElement("div", {
     className: "campo"
   }, /*#__PURE__*/React.createElement("label", null, "Nombre del ciclo"), /*#__PURE__*/React.createElement("input", {
     type: "text",
@@ -740,7 +1179,25 @@ function CajonCiclo({
     maxLength: "100"
   }), /*#__PURE__*/React.createElement("p", {
     className: "letra-chica"
-  }, "Llega prellenada en el formulario. Cada persona puede cambiarla.")), /*#__PURE__*/React.createElement("div", {
+  }, "Llega prellenada en el formulario. Cada persona puede cambiarla.")), /*#__PURE__*/React.createElement("h4", {
+    className: "sub"
+  }, "Películas del ciclo nuevo"), pelis.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "letra-chica"
+  }, "Todavía sin películas. Puedes agregarlas ahora o después."), /*#__PURE__*/React.createElement("ul", {
+    className: "lista-peliculas"
+  }, pelis.map((p, i) => /*#__PURE__*/React.createElement("li", {
+    key: clavePelicula(p) + i
+  }, /*#__PURE__*/React.createElement("span", null, p.titulo, p.anio ? " (" + p.anio + ")" : "", p.director ? " · " + p.director : ""), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "mini",
+    onClick: () => setPelis(pelis.filter((_, j) => j !== i))
+  }, "Quitar")))), /*#__PURE__*/React.createElement(BuscadorBanco, {
+    banco: banco,
+    yaEstan: pelis,
+    onElegir: p => setPelis(pelis.concat([p]))
+  }), /*#__PURE__*/React.createElement(FormularioPelicula, {
+    onAgregar: async p => setPelis(pelis.concat([fichaLimpia(p)]))
+  }), /*#__PURE__*/React.createElement("div", {
     className: "modal-botones"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -755,6 +1212,7 @@ function CajonCiclo({
 function FichaCiclo({
   ciclo,
   peliculas,
+  banco,
   cantidad,
   esActivo,
   api
@@ -766,17 +1224,7 @@ function FichaCiclo({
     descripcion: ciclo.descripcion || "",
     organizacion_sugerida: ciclo.organizacion_sugerida || ""
   });
-  const [peli, setPeli] = useState({
-    titulo: "",
-    director: "",
-    anio: "",
-    imagen_url: "",
-    enlace_url: ""
-  });
   const set = k => e => setD(Object.assign({}, d, {
-    [k]: e.target.value
-  }));
-  const setP = k => e => setPeli(Object.assign({}, peli, {
     [k]: e.target.value
   }));
   return /*#__PURE__*/React.createElement("div", {
@@ -831,55 +1279,13 @@ function FichaCiclo({
     type: "button",
     className: "mini",
     onClick: () => api.borrarPelicula(p.id)
-  }, "Quitar")))), /*#__PURE__*/React.createElement("div", {
-    className: "campos-fila"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "campo"
-  }, /*#__PURE__*/React.createElement("label", null, "Título"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: peli.titulo,
-    onChange: setP("titulo")
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "campo"
-  }, /*#__PURE__*/React.createElement("label", null, "Director"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: peli.director,
-    onChange: setP("director")
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "campo"
-  }, /*#__PURE__*/React.createElement("label", null, "Año"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: peli.anio,
-    onChange: setP("anio")
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "campos-fila"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "campo"
-  }, /*#__PURE__*/React.createElement("label", null, "URL de la imagen"), /*#__PURE__*/React.createElement("input", {
-    type: "url",
-    value: peli.imagen_url,
-    onChange: setP("imagen_url")
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "campo"
-  }, /*#__PURE__*/React.createElement("label", null, "Enlace de la película"), /*#__PURE__*/React.createElement("input", {
-    type: "url",
-    value: peli.enlace_url,
-    onChange: setP("enlace_url")
-  }))), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "boton-suave",
-    onClick: async () => {
-      if (!peli.titulo.trim()) return;
-      await api.agregarPelicula(ciclo.id, peli, peliculas.length);
-      setPeli({
-        titulo: "",
-        director: "",
-        anio: "",
-        imagen_url: "",
-        enlace_url: ""
-      });
-    }
-  }, "Agregar película"), !esActivo && /*#__PURE__*/React.createElement("button", {
+  }, "Quitar")))), /*#__PURE__*/React.createElement(BuscadorBanco, {
+    banco: banco,
+    yaEstan: peliculas,
+    onElegir: p => api.agregarPelicula(ciclo.id, p, peliculas.length)
+  }), /*#__PURE__*/React.createElement(FormularioPelicula, {
+    onAgregar: p => api.agregarPelicula(ciclo.id, p, peliculas.length)
+  }), !esActivo && /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "mini peligro",
     onClick: () => api.borrarCiclo(ciclo, cantidad)
@@ -954,6 +1360,7 @@ function Panel({
     setCfg(estado.config);
   }, [estado.config]);
   const vivos = estado.comentarios.filter(c => !c.eliminado);
+  const banco = useMemo(() => bancoDe(estado.peliculas), [estado.peliculas]);
   const papelera = estado.comentarios.filter(c => c.eliminado);
   const listaFiltrada = filtro === "todos" ? vivos : vivos.filter(c => (c.ciclo_id || "sin") === filtro);
   const pestanas = [["ciclos", "Ciclos"], ["comentarios", "Comentarios"], ["papelera", "Papelera (" + papelera.length + ")"], ["encabezado", "Encabezado"], ["exportar", "Exportar"]];
@@ -986,10 +1393,12 @@ function Panel({
     className: "boton-principal grande",
     onClick: () => setCajon(true)
   }, "Empezar nuevo ciclo"), cajon && /*#__PURE__*/React.createElement(CajonCiclo, {
+    ciclos: estado.ciclos,
+    peliculasTodas: estado.peliculas,
+    banco: banco,
     onCancelar: () => setCajon(false),
-    onAbrir: async d => {
-      await api.abrirCiclo(d);
-      setCajon(false);
+    onAbrir: async (d, pelis) => {
+      if (await api.abrirCiclo(d, pelis)) setCajon(false);
     }
   }), estado.config.ciclo_activo_id && /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -999,6 +1408,7 @@ function Panel({
     key: c.id,
     ciclo: c,
     api: api,
+    banco: banco,
     esActivo: c.id === estado.config.ciclo_activo_id,
     cantidad: vivos.filter(x => x.ciclo_id === c.id).length,
     peliculas: estado.peliculas.filter(p => p.ciclo_id === c.id)
@@ -1142,7 +1552,11 @@ function App() {
   const [sesion, setSesion] = useState(false);
   const [pidiendoPin, setPidiendoPin] = useState(false);
   const [verPanel, setVerPanel] = useState(false);
-  const [plegados, setPlegados] = useState({});
+  /* Vista de cada ciclo cerrado: carrusel (por defecto) o muro */
+  const [vistas, setVistas] = useState({});
+  const alternarVista = id => setVistas(Object.assign({}, vistas, {
+    [id]: vistas[id] === "muro" ? "carrusel" : "muro"
+  }));
   const [recienPublicado, setRecienPublicado] = useState(false);
   async function cargar() {
     setError("");
@@ -1254,8 +1668,9 @@ function App() {
     await cargar();
   }
   const api = {
-    abrirCiclo: async d => {
+    abrirCiclo: async (d, pelis) => {
       const {
+        data: nuevo,
         error: err
       } = await db.rpc("abrir_ciclo", {
         p_nombre: d.nombre,
@@ -1264,8 +1679,27 @@ function App() {
         p_descripcion: d.descripcion || "",
         p_organizacion: d.organizacion || ""
       });
-      if (err) return alert("No se pudo abrir el ciclo: " + err.message);
+      if (err) {
+        alert("No se pudo abrir el ciclo: " + err.message);
+        return false;
+      }
+      const nuevoId = nuevo && (nuevo.id || nuevo[0] && nuevo[0].id);
+      if (nuevoId && pelis && pelis.length) {
+        const {
+          error: errP
+        } = await db.from("peliculas").insert(pelis.map((p, i) => ({
+          ciclo_id: nuevoId,
+          titulo: p.titulo,
+          director: p.director || "",
+          anio: p.anio ? Number(p.anio) : null,
+          imagen_url: p.imagen_url || "",
+          enlace_url: p.enlace_url || "",
+          orden: i
+        })));
+        if (errP) alert("El ciclo quedó abierto, pero no se pudieron copiar las películas: " + errP.message + "\nPuedes agregarlas desde su ficha.");
+      }
       await cargar();
+      return true;
     },
     cerrarCiclo: async () => {
       if (!confirm("El muro deja de recibir comentarios hasta que abras otro ciclo. ¿Continuamos?")) return;
@@ -1309,8 +1743,12 @@ function App() {
         enlace_url: p.enlace_url,
         orden: orden
       });
-      if (err) return alert("No se pudo agregar: " + err.message);
+      if (err) {
+        alert("No se pudo agregar: " + err.message);
+        return false;
+      }
       await cargar();
+      return true;
     },
     borrarPelicula: async id => {
       if (!confirm("¿Quitar esta película del ciclo?")) return;
@@ -1405,8 +1843,37 @@ function App() {
   }
   const totalVoces = visibles.length;
   const promGeneral = promedioDe(visibles);
+
+  /* Tramos de la línea de tiempo, en el mismo orden que el muro */
+  const tramos = [].concat(cicloActivo ? [{
+    id: "ciclo-" + cicloActivo.id,
+    activo: true,
+    cuando: "Ciclo actual",
+    nombre: cicloActivo.nombre,
+    corto: cicloActivo.organizacion_sugerida,
+    voces: visibles.filter(c => c.ciclo_id === cicloActivo.id).length
+  }] : []).concat(cerrados.map(c => ({
+    id: "ciclo-" + c.id,
+    activo: false,
+    cuando: mesDe(c),
+    nombre: c.nombre,
+    corto: c.organizacion_sugerida,
+    voces: visibles.filter(x => x.ciclo_id === c.id).length
+  }))).concat(sinCiclo.length ? [{
+    id: "ciclo-sin",
+    activo: false,
+    cuando: "Antes",
+    nombre: "Comentarios sin ciclo",
+    corto: "Sin ciclo",
+    voces: sinCiclo.length
+  }] : []);
+  const hayLinea = tramos.length > 1;
   return /*#__PURE__*/React.createElement("div", {
-    className: "envoltura"
+    className: "envoltura" + (hayLinea ? " con-linea" : "")
+  }, hayLinea && /*#__PURE__*/React.createElement(LineaTiempo, {
+    tramos: tramos
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "contenido"
   }, /*#__PURE__*/React.createElement("header", {
     className: "encabezado"
   }, /*#__PURE__*/React.createElement("p", {
@@ -1424,7 +1891,8 @@ function App() {
   }))), /*#__PURE__*/React.createElement("p", {
     className: "entradilla"
   }, config.entradilla), cicloActivo && /*#__PURE__*/React.createElement("div", {
-    className: "ciclo-actual"
+    className: "ciclo-actual",
+    id: "ciclo-" + cicloActivo.id
   }, /*#__PURE__*/React.createElement("p", {
     className: "ciclo-etiqueta"
   }, "Ciclo actual"), /*#__PURE__*/React.createElement("h2", {
@@ -1454,50 +1922,39 @@ function App() {
     onEditar: () => setVerPanel(true),
     onReaccion: alternarReaccion,
     vacio: "Todavía no hay comentarios en este ciclo. El primero abre la conversación."
-  }), cerrados.map(c => {
-    const suyos = visibles.filter(x => x.ciclo_id === c.id);
-    const plegado = plegados[c.id] !== false;
-    return /*#__PURE__*/React.createElement("div", {
-      key: c.id
-    }, /*#__PURE__*/React.createElement(Divisor, {
-      ciclo: c,
-      comentarios: suyos,
-      plegado: plegado,
-      peliculas: peliculas.filter(p => p.ciclo_id === c.id),
-      onPlegar: () => setPlegados(Object.assign({}, plegados, {
-        [c.id]: !plegado
-      }))
-    }), !plegado && /*#__PURE__*/React.createElement(Rejilla, {
-      comentarios: suyos,
-      porComentario: porComentario,
-      esAdmin: sesion,
-      onPapelera: api.aPapelera,
-      onEditar: () => setVerPanel(true),
-      onReaccion: alternarReaccion,
-      vacio: "Este ciclo cerró sin comentarios."
-    }));
-  }), sinCiclo.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("section", {
-    className: "divisor"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "arcoiris",
-    "aria-hidden": "true"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "divisor-cuerpo"
-  }, /*#__PURE__*/React.createElement("p", {
-    className: "divisor-etiqueta"
-  }, "Sin ciclo"), /*#__PURE__*/React.createElement("h2", {
-    className: "divisor-nombre"
-  }, "Comentarios anteriores"), /*#__PURE__*/React.createElement("p", {
-    className: "divisor-desc"
-  }, plural(sinCiclo.length, "comentario", "comentarios"), " que quedaron fuera de un ciclo."))), /*#__PURE__*/React.createElement(Rejilla, {
-    comentarios: sinCiclo,
+  }), cerrados.map(c => /*#__PURE__*/React.createElement(BloqueCerrado, {
+    key: c.id,
+    id: "ciclo-" + c.id,
+    etiqueta: "Ciclo cerrado",
+    nombre: c.nombre,
+    ciclo: c,
+    peliculas: peliculas.filter(p => p.ciclo_id === c.id),
+    comentarios: visibles.filter(x => x.ciclo_id === c.id),
+    vacio: "Este ciclo cerró sin comentarios.",
+    enMuro: vistas[c.id] === "muro",
+    onCambiarVista: () => alternarVista(c.id),
     porComentario: porComentario,
     esAdmin: sesion,
     onPapelera: api.aPapelera,
     onEditar: () => setVerPanel(true),
-    onReaccion: alternarReaccion,
-    vacio: ""
-  }))), /*#__PURE__*/React.createElement("footer", {
+    onReaccion: alternarReaccion
+  })), sinCiclo.length > 0 && /*#__PURE__*/React.createElement(BloqueCerrado, {
+    id: "ciclo-sin",
+    etiqueta: "Sin ciclo",
+    nombre: "Comentarios anteriores",
+    ciclo: {
+      descripcion: plural(sinCiclo.length, "comentario", "comentarios") + " que quedaron fuera de un ciclo."
+    },
+    comentarios: sinCiclo,
+    vacio: "",
+    enMuro: vistas.sin === "muro",
+    onCambiarVista: () => alternarVista("sin"),
+    porComentario: porComentario,
+    esAdmin: sesion,
+    onPapelera: api.aPapelera,
+    onEditar: () => setVerPanel(true),
+    onReaccion: alternarReaccion
+  })), /*#__PURE__*/React.createElement("footer", {
     className: "pie"
   }, /*#__PURE__*/React.createElement("p", null, config.pie), sesion ? /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -1522,7 +1979,7 @@ function App() {
     r: "3.1"
   }), /*#__PURE__*/React.createElement("path", {
     d: "M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.11a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.11A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.11A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.09a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.11a1.7 1.7 0 0 0-1.49 1.03z"
-  })))), pidiendoPin && /*#__PURE__*/React.createElement(ModalPin, {
+  }))))), pidiendoPin && /*#__PURE__*/React.createElement(ModalPin, {
     onEntrar: entrar,
     onCerrar: () => setPidiendoPin(false)
   }), sesion && verPanel && /*#__PURE__*/React.createElement(Panel, {

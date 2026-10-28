@@ -296,6 +296,179 @@ button{font-family:inherit;font-size:1rem;cursor:pointer}
 .cargando{color:var(--tinta-suave)}
 code{background:var(--papel-hondo);padding:2px 6px;border-radius:5px;font-size:.9em}
 
+/* ---------- Reacciones ---------- */
+.reacciones{position:relative;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pastilla{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--papel);border:1px solid var(--linea);border-radius:999px;
+  padding:3px 10px;min-height:32px;font-size:.85rem;color:var(--tinta);
+  transition:border-color .15s ease,background .15s ease;
+}
+.pastilla:hover{border-color:var(--tinta-suave)}
+.pastilla:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
+.pastilla.mia{font-weight:600}
+.pastilla-emoji{font-size:1rem;line-height:1}
+.pastilla-cuenta{font-size:.8rem;font-variant-numeric:tabular-nums;color:var(--tinta-suave)}
+.pastilla.mia .pastilla-cuenta{color:var(--tinta)}
+.pastilla-mas{
+  width:32px;padding:0;justify-content:center;
+  font-size:1.05rem;line-height:1;color:var(--tinta-suave);background:transparent;
+}
+.paleta-emojis{
+  position:absolute;left:0;bottom:calc(100% + 8px);z-index:20;
+  display:grid;grid-template-columns:repeat(5,40px);gap:4px;padding:8px;
+  background:var(--tarjeta);border:1px solid var(--linea);border-radius:12px;
+  box-shadow:0 10px 30px rgba(44,42,38,.16);
+}
+.emoji-opcion{
+  width:40px;height:40px;border:0;border-radius:9px;background:none;
+  font-size:1.3rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;
+}
+.emoji-opcion:hover,.emoji-opcion:focus-visible{background:var(--papel-hondo);outline:none}
+.tarjeta-acciones{display:inline-flex;gap:4px;flex-wrap:wrap}
+.tarjeta-acciones .mini{padding:4px 6px;min-height:30px;font-size:.78rem}
+.exito{
+  margin:0 0 18px;padding:10px 12px;border-radius:9px;
+  background:#E6EEDF;color:#2F4A26;font-size:.92rem;
+}
+
+/* ---------- Carrusel de ciclos cerrados ---------- */
+.divisor .arcoiris{height:2px;background:var(--linea)}
+.bloque-cerrado{margin-bottom:8px}
+.carrusel{position:relative;display:flex;align-items:center;gap:8px}
+.carrusel-pista{
+  flex:1 1 auto;min-width:0;display:flex;gap:18px;
+  overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 2px;
+  padding:4px 2px 18px;-webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;scrollbar-color:var(--linea) transparent;
+}
+.carrusel-pista:focus-visible{outline:2px solid var(--tinta);outline-offset:4px;border-radius:var(--radio)}
+.carrusel-item{flex:0 0 320px;max-width:85vw;scroll-snap-align:start;display:flex}
+.carrusel-item .tarjeta{width:100%}
+.carrusel-flecha{
+  flex:0 0 auto;width:42px;height:42px;border-radius:50%;
+  border:1px solid var(--linea);background:var(--tarjeta);color:var(--tinta);
+  font-size:1.6rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;
+  box-shadow:var(--sombra);padding:0 0 3px;
+}
+.carrusel-flecha:disabled{opacity:.3;cursor:default;box-shadow:none}
+.carrusel-flecha:not(:disabled):hover{border-color:var(--tinta)}
+.tarjeta-texto.recortado{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:8;overflow:hidden;
+}
+.leer-mas{
+  background:none;border:0;padding:6px 0 0;font-size:.84rem;font-weight:600;
+  color:var(--tinta);text-decoration:underline;
+}
+
+/* ---------- Banco de películas y clonación ---------- */
+.clonar{padding:14px 16px;background:var(--papel-hondo);border-radius:10px}
+.banco{margin:4px 0 12px}
+.banco .campo{margin-bottom:10px}
+.banco-lista{
+  list-style:none;margin:0;padding:0;max-height:300px;overflow-y:auto;
+  border:1px solid var(--linea);border-radius:10px;background:#fff;
+}
+.banco-lista li{
+  display:flex;align-items:center;gap:12px;padding:8px 12px;
+  border-bottom:1px solid var(--linea);font-size:.9rem;
+}
+.banco-lista li:last-child{border-bottom:0}
+.banco-miniatura{
+  width:32px;height:46px;flex:0 0 auto;border-radius:4px;overflow:hidden;
+  background:var(--papel-hondo);
+}
+.banco-miniatura img{width:100%;height:100%;object-fit:cover;display:block}
+.banco-datos{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.banco-datos span{font-size:.8rem;color:var(--tinta-suave)}
+.banco-nada{color:var(--tinta-suave);font-style:italic}
+.boton-suave.chico{padding:6px 12px;min-height:36px;font-size:.85rem}
+.pelicula-nueva{margin:0 0 18px}
+.pelicula-nueva summary{
+  cursor:pointer;font-size:.9rem;font-weight:600;padding:8px 0;color:var(--tinta);
+}
+.pelicula-nueva[open] summary{margin-bottom:10px}
+
+/* ---------- Línea de tiempo de ciclos ---------- */
+.ciclo-actual,.bloque-cerrado{scroll-margin-top:24px}
+.linea-titulo{
+  font-family:"Bebas Neue",sans-serif;letter-spacing:.2em;text-transform:uppercase;
+  font-size:1rem;color:var(--tinta-suave);margin:0 0 14px;
+}
+.linea-lista{list-style:none;margin:0;padding:0;position:relative}
+.tramo{
+  position:relative;display:flex;align-items:flex-start;gap:12px;width:100%;
+  background:none;border:0;padding:8px 6px 8px 0;text-align:left;color:var(--tinta-suave);
+  border-radius:8px;
+}
+.tramo:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
+.tramo-punto{
+  flex:0 0 auto;width:13px;height:13px;margin-top:4px;border-radius:50%;
+  border:2px solid var(--linea);background:var(--papel);position:relative;z-index:1;
+  transition:background .2s ease,border-color .2s ease,transform .2s ease;
+}
+.tramo.vivo .tramo-punto{border-color:var(--oro)}
+.tramo-texto{display:flex;flex-direction:column;min-width:0;line-height:1.3}
+.tramo-cuando{
+  font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;
+}
+.tramo.vivo .tramo-cuando{color:#9A6B06}
+.tramo-nombre{font-size:.88rem;overflow-wrap:break-word}
+.tramo-voces{font-size:.74rem;opacity:.8}
+.tramo-corto{display:none}
+.tramo:hover{color:var(--tinta)}
+.tramo:hover .tramo-punto{border-color:var(--tinta-suave)}
+.tramo.actual{color:var(--tinta)}
+.tramo.actual .tramo-nombre{font-weight:600}
+.tramo.actual .tramo-punto{background:var(--tinta);border-color:var(--tinta);transform:scale(1.15)}
+.tramo.vivo.actual .tramo-punto{background:var(--oro);border-color:var(--oro)}
+
+/* Pantallas anchas: columna fija a la izquierda */
+@media (min-width:1100px){
+  .envoltura.con-linea{
+    max-width:1380px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:44px;
+  }
+  .linea-tiempo{
+    position:sticky;top:0;align-self:start;max-height:100vh;overflow-y:auto;
+    padding:56px 4px 32px 0;
+  }
+  .linea-lista::before{
+    content:"";position:absolute;left:5.5px;top:16px;bottom:16px;width:2px;
+    background:var(--linea);
+  }
+  .linea-lista li+li{margin-top:6px}
+}
+
+/* Pantallas angostas: franja horizontal pegada arriba */
+@media (max-width:1099px){
+  .linea-tiempo{
+    position:sticky;top:0;z-index:30;margin:0 -20px;padding:8px 20px;
+    background:rgba(247,243,236,.94);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--linea);
+  }
+  .linea-titulo{display:none}
+  .linea-lista{
+    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .linea-lista::-webkit-scrollbar{display:none}
+  .linea-lista li{flex:0 0 auto}
+  .tramo{
+    align-items:center;gap:8px;padding:6px 12px 6px 10px;min-height:40px;
+    border:1px solid var(--linea);border-radius:999px;background:var(--tarjeta);
+    width:auto;max-width:240px;
+  }
+  .tramo-punto{width:10px;height:10px;margin-top:0}
+  .tramo-texto{flex-direction:row;align-items:baseline;gap:6px;white-space:nowrap}
+  .tramo-nombre{display:none}
+  .tramo-corto{display:block;overflow:hidden;text-overflow:ellipsis;max-width:150px;font-size:.84rem}
+  .tramo.actual .tramo-corto{font-weight:600}
+  .tramo-voces{display:none}
+  .tramo.actual{border-color:var(--tinta);background:var(--papel-hondo)}
+  .ciclo-actual,.bloque-cerrado{scroll-margin-top:72px}
+}
+
 /* ---------- Adaptación a pantallas ---------- */
 @media (max-width:900px){
   .campos-fila{grid-template-columns:1fr 1fr}
@@ -308,6 +481,9 @@ code{background:var(--papel-hondo);padding:2px 6px;border-radius:5px;font-size:.
   .formulario{padding:20px}
   .divisor-cuerpo{padding:20px 16px}
   .tarjeta{padding:16px}
+  .carrusel-flecha{display:none}
+  .linea-tiempo{margin:0 -14px;padding:8px 14px}
+  .carrusel-item{flex-basis:84vw}
 }
 </style>
 </head>
